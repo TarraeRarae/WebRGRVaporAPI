@@ -28,12 +28,3 @@ final class Admin: Model, Content {
     self.password = password
   }
 }
-
-//extension Admin: Migration {
-//   static func prepare(on connection: PostgresConnection) -> Future<Void> {
-//       return Database.create(self, on: connection) { builder in
-//           try addProperties(to: builder)
-//           builder.unique(on: \.email)
-//       }
-//   }
-//}
