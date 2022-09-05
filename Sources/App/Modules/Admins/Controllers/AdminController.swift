@@ -14,6 +14,7 @@ struct AdminController: RouteCollection {
     admins.post("create", use: create)
     admins.get("getAll", use: getAll)
     admins.put("update", use: update)
+    admins.delete("delete", use: delete)
   }
 
   func getAll(req: Request) async throws -> [Admin] {
@@ -73,6 +74,16 @@ struct AdminController: RouteCollection {
 
     try await adminDataFromDB.update(on: req.db)
 
+    return .ok
+  }
+
+  func delete(req: Request) async throws -> HTTPStatus {
+    let admindData = try req.content.decode(Admin.self)
+    guard let adminDataFromDB = try await Admin.find(admindData.id, on: req.db) else {
+      throw Abort(.notFound)
+    }
+
+    try await adminDataFromDB.delete(on: req.db)
     return .ok
   }
 
