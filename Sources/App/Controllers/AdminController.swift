@@ -11,8 +11,9 @@ import Vapor
 struct AdminController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {
     let admins = routes.grouped("admin")
-    admins.post(use: create)
-    admins.get(use: getAll)
+    admins.post("create", use: create)
+    admins.get("getAll", use: getAll)
+    admins.put("update", use: update)
   }
 
   func getAll(req: Request) async throws -> [Admin] {
@@ -26,12 +27,9 @@ struct AdminController: RouteCollection {
       throw Abort(.custom(code: 400, reasonPhrase: "User is already registered"))
     }
 
-    if !Validator.shared.checkIsEmailValid(email: adminData.email) {
-      throw Abort(.custom(code: 400, reasonPhrase: "Email is not valid"))
-    }
-
-    if !Validator.shared.checkIsPasswordValid(password: adminData.password) {
-      throw Abort(.custom(code: 400, reasonPhrase: "Password is not valid"))
+    let validationResult = validateAdminData(data: adminData)
+    if !validationResult.0 {
+      throw Abort(.custom(code: 400, reasonPhrase: validationResult.1?.description ?? ""))
     }
 
     do {
@@ -44,5 +42,57 @@ struct AdminController: RouteCollection {
     }
 
     return .ok
+  }
+
+  func update(req: Request) async throws -> HTTPStatus {
+    let adminData = try req.content.decode(Admin.self)
+
+    if adminData.email.count == 0 && adminData.password.count == 0 {
+      throw Abort(.badRequest)
+    }
+
+    let validationResult = validateAdminData(data: adminData)
+    if !validationResult.0 {
+      if !((validationResult.1 == .badEmail && adminData.email.count == 0) ||
+          (validationResult.1 == .badPassword && adminData.password.count == 0)) {
+        throw Abort(.custom(code: 400, reasonPhrase: validationResult.1?.description ?? ""))
+      }
+    }
+
+    guard let adminDataFromDB = try await Admin.find(adminData.id, on: req.db) else {
+      throw Abort(.notFound)
+    }
+
+    if adminData.email.count > 0 {
+      adminDataFromDB.email = adminData.email
+    }
+
+    if adminData.password.count > 0 {
+      adminDataFromDB.password = adminData.password
+    }
+
+    try await adminDataFromDB.update(on: req.db)
+
+    return .ok
+  }
+
+//  func login() {}
+
+//  func logout() {}
+}
+
+// MARK: - Private
+
+private extension AdminController {
+  func validateAdminData(data: Admin) -> (Bool, ValidationError?) {
+    if !Validator.shared.checkIsEmailValid(email: data.email) {
+      return (false, .badEmail)
+    }
+
+    if !Validator.shared.checkIsPasswordValid(password: data.password) {
+      return (false, .badPassword)
+    }
+
+    return (true, nil)
   }
 }

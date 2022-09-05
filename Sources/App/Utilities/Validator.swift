@@ -7,6 +7,20 @@
 
 import Foundation
 
+enum ValidationError: Error {
+  case badEmail
+  case badPassword
+
+  var description: String {
+    switch self {
+      case .badEmail:
+        return "Email is not valid"
+      case .badPassword:
+        return "Password is not valid"
+    }
+  }
+}
+
 final class Validator {
   static let shared = Validator()
 
