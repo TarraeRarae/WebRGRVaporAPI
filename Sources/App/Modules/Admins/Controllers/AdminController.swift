@@ -14,7 +14,8 @@ struct AdminController: RouteCollection {
     admins.post("create", use: create)
     admins.get("getAll", use: getAll)
     admins.put("update", use: update)
-    admins.delete("delete", use: delete)
+    admins.delete("delete", ":uuid", use: delete)
+    admins.post("login", use: login)
   }
 
   func getAll(req: Request) async throws -> [Admin] {
@@ -22,6 +23,7 @@ struct AdminController: RouteCollection {
   }
 
   func create(req: Request) async throws -> HTTPStatus {
+    print(req.content)
     let adminData = try req.content.decode(Admin.self)
 
     if try await Admin.query(on: req.db).filter(\.$email == adminData.email).count() > 0 {
@@ -38,7 +40,7 @@ struct AdminController: RouteCollection {
     } catch {
       throw Abort(.custom(
         code: 500,
-        reasonPhrase: "Server error. Unable to create an account. Please, try again later")
+        reasonPhrase: HTTPErrors.serverError)
       )
     }
 
@@ -78,8 +80,9 @@ struct AdminController: RouteCollection {
   }
 
   func delete(req: Request) async throws -> HTTPStatus {
-    let admindData = try req.content.decode(Admin.self)
-    guard let adminDataFromDB = try await Admin.find(admindData.id, on: req.db) else {
+    guard let adminIDString = req.parameters.get("uuid"),
+          let adminID = UUID(uuidString: adminIDString),
+          let adminDataFromDB = try await Admin.find(adminID, on: req.db) else {
       throw Abort(.notFound)
     }
 
@@ -87,9 +90,20 @@ struct AdminController: RouteCollection {
     return .ok
   }
 
-//  func login() {}
+  func login(req: Request) async throws -> HTTPStatus {
+    let adminData = try req.content.decode(Admin.self)
+    let admins = Admin.query(on: req.db).filter(\.$email == adminData.email)
 
-//  func logout() {}
+    if try await admins.count() == 0 {
+      throw Abort(.custom(code: 400, reasonPhrase: "Incorrect email or password"))
+    }
+
+    if try await admins.first()?.password ?? "" != adminData.password {
+      throw Abort(.custom(code: 400, reasonPhrase: "Incorrect password or password"))
+    }
+
+    return .ok
+  }
 }
 
 // MARK: - Private

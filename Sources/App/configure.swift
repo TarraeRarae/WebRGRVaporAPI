@@ -15,7 +15,17 @@ public func configure(_ app: Application) throws {
     database: Environment.get("DATABASE_NAME") ?? "vapor_database"
   ), as: .psql)
 
+  let corsConfiguration = CORSMiddleware.Configuration(
+      allowedOrigin: .all,
+      allowedMethods: [.GET, .POST, .PUT, .OPTIONS, .DELETE, .PATCH],
+      allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent, .accessControlAllowOrigin]
+  )
+
+  app.middleware.use(CORSMiddleware(configuration: corsConfiguration))
+
   app.migrations.add(CreateAdmins())
+  app.migrations.add(CreateGoods())
+  app.migrations.add(CreateOrders())
   try app.autoMigrate().wait()
 
   // register routes
